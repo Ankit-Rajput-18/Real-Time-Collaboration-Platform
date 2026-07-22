@@ -5,6 +5,7 @@ import {
   getTaskById,
   updateTask,
   deleteTask,
+  addComment,
   getTaskStats
 } from '../controllers/taskController.js';
 import { verifyToken } from '../middleware/auth.js';
@@ -17,5 +18,6 @@ router.get('/:workspaceId/stats', verifyToken, getTaskStats);
 router.get('/task/:id', verifyToken, getTaskById);
 router.put('/task/:id', verifyToken, updateTask);
 router.delete('/task/:id', verifyToken, deleteTask);
+router.post('/task/:taskId/comments', verifyToken, addComment);
 
 export default router;

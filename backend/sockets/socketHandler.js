@@ -1,30 +1,35 @@
 import Message from '../models/Message.js';
+import User from '../models/User.js';
 
 export const setupSocketHandlers = (io) => {
-  io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+  // Store active users
+  const activeUsers = new Map();
 
-    // Join workspace room
+  io.on('connection', (socket) => {
+    console.log('👤 User connected:', socket.id);
+
+    // User joins
+    socket.on('user-login', async (userId) => {
+      activeUsers.set(userId, socket.id);
+      await User.findByIdAndUpdate(userId, { status: 'online', lastSeen: new Date() });
+      io.emit('user-status-changed', { userId, status: 'online' });
+      console.log('✅ User online:', userId);
+    });
+
+    // Join workspace
     socket.on('join-workspace', (workspaceId) => {
       socket.join(`workspace-${workspaceId}`);
-      console.log(`User joined workspace: ${workspaceId}`);
+      socket.emit('workspace-joined', { workspaceId });
+      io.to(`workspace-${workspaceId}`).emit('user-joined-workspace', {
+        userId: socket.id,
+        message: 'A user joined'
+      });
     });
 
-    // Leave workspace room
-    socket.on('leave-workspace', (workspaceId) => {
-      socket.leave(`workspace-${workspaceId}`);
-    });
-
-    // Join channel room
+    // Join channel
     socket.on('join-channel', (channelId) => {
       socket.join(`channel-${channelId}`);
-      socket.emit('user-joined', { channelId });
-    });
-
-    // Leave channel room
-    socket.on('leave-channel', (channelId) => {
-      socket.leave(`channel-${channelId}`);
-      socket.emit('user-left', { channelId });
+      io.to(`channel-${channelId}`).emit('user-joined-channel', { channelId });
     });
 
     // Send message
@@ -37,34 +42,34 @@ export const setupSocketHandlers = (io) => {
         if (data.channel) {
           io.to(`channel-${data.channel}`).emit('new-message', message);
         } else if (data.receiver) {
-          io.to(`user-${data.receiver}`).emit('new-message', message);
+          const receiverSocket = activeUsers.get(data.receiver);
+          if (receiverSocket) {
+            io.to(receiverSocket).emit('new-message', message);
+          }
         }
       } catch (error) {
-        console.error('Message send error:', error);
+        console.error('Message error:', error);
       }
     });
 
     // Typing indicator
     socket.on('typing', (data) => {
-      if (data.channel) {
-        socket.to(`channel-${data.channel}`).emit('user-typing', {
-          userId: data.userId,
-          userName: data.userName
-        });
-      }
+      io.to(`channel-${data.channel}`).emit('user-typing', {
+        userId: data.userId,
+        userName: data.userName
+      });
     });
 
     // Stop typing
     socket.on('stop-typing', (data) => {
-      if (data.channel) {
-        socket.to(`channel-${data.channel}`).emit('user-stop-typing', {
-          userId: data.userId
-        });
-      }
+      io.to(`channel-${data.channel}`).emit('user-stop-typing', {
+        userId: data.userId
+      });
     });
 
     // Update user status
-    socket.on('update-status', (data) => {
+    socket.on('update-status', async (data) => {
+      await User.findByIdAndUpdate(data.userId, { status: data.status });
       io.emit('user-status-changed', {
         userId: data.userId,
         status: data.status
@@ -72,8 +77,19 @@ export const setupSocketHandlers = (io) => {
     });
 
     // Disconnect
-    socket.on('disconnect', () => {
-      console.log('User disconnected:', socket.id);
+    socket.on('disconnect', async () => {
+      console.log('👤 User disconnected:', socket.id);
+      for (let [userId, socketId] of activeUsers) {
+        if (socketId === socket.id) {
+          activeUsers.delete(userId);
+          await User.findByIdAndUpdate(userId, { 
+            status: 'offline',
+            lastSeen: new Date()
+          });
+          io.emit('user-status-changed', { userId, status: 'offline' });
+          break;
+        }
+      }
     });
   });
 };
