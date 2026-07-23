@@ -5,6 +5,7 @@ import { WorkspaceProvider } from './context/WorkspaceContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -26,9 +27,12 @@ function App() {
       <AuthProvider>
         <WorkspaceProvider>
           <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             
+            {/* Protected Routes */}
             <Route
               path="/dashboard"
               element={
@@ -73,8 +77,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </WorkspaceProvider>
       </AuthProvider>
