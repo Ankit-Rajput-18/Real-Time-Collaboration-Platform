@@ -5,11 +5,17 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import mongoose from 'mongoose';
 
-console.log('\n🔍 Environment Check:');
-console.log('   MONGODB_URI:', process.env.MONGODB_URI ? '✅' : '❌');
-console.log('   NODE_ENV:', process.env.NODE_ENV || 'development');
+// Database
+import { connectDatabase } from './config/database.js';
+
+console.log('\n' + '='.repeat(60));
+console.log('🔧 ENVIRONMENT CONFIGURATION');
+console.log('='.repeat(60));
+console.log('📌 NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('📌 PORT:', process.env.PORT || 5000);
+console.log('📌 FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000');
+console.log('='.repeat(60) + '\n');
 
 // Routes
 import authRoutes from './routes/authRoutes.js';
@@ -21,6 +27,7 @@ import fileRoutes from './routes/fileRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
 
+// Socket Handler
 import { setupSocketHandlers } from './sockets/socketHandler.js';
 
 const app = express();
@@ -33,31 +40,31 @@ const io = new Server(httpServer, {
   }
 });
 
-// Middleware
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
+// ==================== MIDDLEWARE ====================
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Database
-console.log('\n📡 Connecting to MongoDB...');
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('✅ MongoDB Connected -', mongoose.connection.name);
-  })
-  .catch(err => {
-    console.error('❌ MongoDB Error:', err.message);
-    process.exit(1);
-  });
+// ==================== DATABASE CONNECTION ====================
+await connectDatabase();
 
-// Routes
+// ==================== ROUTES ====================
+console.log('📍 Loading API Routes...\n');
+
+// Health Check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: '✅ Running',
-    db: mongoose.connection.name,
-    timestamp: new Date()
+  res.json({
+    status: '✅ Server Running',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
   });
 });
 
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/tasks', taskRoutes);
@@ -67,28 +74,55 @@ app.use('/api/files', fileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/activity', activityRoutes);
 
-console.log('\n📍 Routes Loaded ✅\n');
+console.log('✅ All API Routes Loaded\n');
 
-// Socket.IO
+// ==================== SOCKET.IO ====================
+console.log('🔌 Setting up Socket.IO...\n');
 setupSocketHandlers(io);
 app.locals.io = io;
 
-// Error Handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err.message);
-  res.status(err.status || 500).json({ message: err.message });
+// ==================== ERROR HANDLERS ====================
+app.use((req, res) => {
+  res.status(404).json({
+    message: '❌ Route not found',
+    path: req.url,
+    method: req.method
+  });
 });
 
-// Start Server
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.message);
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error'
+  });
+});
+
+// ==================== START SERVER ====================
 const PORT = process.env.PORT || 5000;
+const ENV = process.env.NODE_ENV || 'development';
+
 httpServer.listen(PORT, () => {
   console.log(`
-╔════════════════════════════════════════╗
-║   🚀 ADVANCED COLLABORATION PLATFORM   ║
-║   ✅ Running on Port ${PORT}              ║
-║   🗄️  Database Connected               ║
-║   🔌 Socket.IO Active                  ║
-║   Ready! 🎉                            ║
-╚════════════════════════════════════════╝
+╔════════════════════════════════════════════════════╗
+║                                                    ║
+║   🚀 REAL-TIME COLLABORATION PLATFORM             ║
+║                                                    ║
+║   ✅ Server Running on Port ${PORT}                      ║
+║   📊 Environment: ${ENV.toUpperCase().padEnd(30)}     ║
+║   🌐 Frontend: http://localhost:3000               ║
+║   💻 Backend: http://localhost:${PORT}                       ║
+║   🔌 Socket.IO: Active                             ║
+║   🗄️  Database: Connected ✅                       ║
+║                                                    ║
+║   Ready to accept requests! 🎉                     ║
+║                                                    ║
+╚════════════════════════════════════════════════════╝
   `);
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n\n👋 Shutting down gracefully...');
+  await mongoose.connection.close();
+  process.exit(0);
 });
