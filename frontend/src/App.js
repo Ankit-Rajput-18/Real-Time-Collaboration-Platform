@@ -9,6 +9,9 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import TasksPage from './pages/TasksPage';
+import MessagesPage from './pages/MessagesPage';
+import TeamPage from './pages/TeamPage';
+import SettingsPage from './pages/SettingsPage';
 
 import './styles/App.css';
 
@@ -40,6 +43,33 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TasksPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <MessagesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/team"
+              element={
+                <ProtectedRoute>
+                  <TeamPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />

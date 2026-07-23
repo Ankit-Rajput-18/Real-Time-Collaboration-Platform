@@ -1,22 +1,34 @@
 import { useEffect, useState } from 'react';
 import { connectSocket, getSocket } from '../services/socket';
+import { useAuth } from './useAuth';
 
 export const useSocket = () => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const socketInstance = connectSocket();
-    setSocket(socketInstance);
+    if (user) {
+      const socketInstance = connectSocket();
+      setSocket(socketInstance);
 
-    socketInstance.on('connect', () => setConnected(true));
-    socketInstance.on('disconnect', () => setConnected(false));
+      socketInstance.on('connect', () => {
+        console.log('Socket connected');
+        setConnected(true);
+        socketInstance.emit('user-login', user.id);
+      });
 
-    return () => {
-      socketInstance.off('connect');
-      socketInstance.off('disconnect');
-    };
-  }, []);
+      socketInstance.on('disconnect', () => {
+        console.log('Socket disconnected');
+        setConnected(false);
+      });
+
+      return () => {
+        socketInstance.off('connect');
+        socketInstance.off('disconnect');
+      };
+    }
+  }, [user]);
 
   return { socket: getSocket(), connected };
 };
