@@ -3,8 +3,15 @@ module.exports = {
   darkMode: 'class',
   theme: {
     extend: {
-      colors: { gray: { 850: '#1a1f2e' } },
-      animation: { 'bounce-slow': 'bounce 3s infinite', 'pulse-slow': 'pulse 3s infinite' }
+      colors: {
+        dark: {
+          bg: '#0f172a',
+          card: '#1e293b',
+          border: '#334155',
+          text: '#e2e8f0',
+          muted: '#94a3b8',
+        }
+      }
     }
   },
   plugins: []
